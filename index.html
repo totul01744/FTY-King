@@ -486,14 +486,16 @@ async function googleLogin(){
 }
 async function doLogout(){await auth.signOut();location.reload();}
 
-// ══ AUTH STATE ══
-// ══ URL থেকে UID নিয়ে auto-login (FYP King থেকে আসলে) ══
+// ══ URL UID দিয়ে auto-login ══
 async function loadAppByUID(uid){
   document.getElementById('loginPg').classList.remove('on');
   FYP.uid=uid;
   try{
     let prof=await DB.get('players/'+uid);
-    if(!prof){prof={uid,name:'Player_'+uid.slice(-5),joinedAt:Date.now(),wins:0,phone:'',game:'',gameUID:''};await DB.set('players/'+uid,prof);}
+    if(!prof){
+      prof={uid,name:'Player_'+uid.slice(-5),joinedAt:Date.now(),wins:0,phone:'',game:'',gameUID:''};
+      await DB.set('players/'+uid,prof);
+    }
     FYP.profile=prof;
     FYP.isAdmin=ADMIN_UIDS.includes(uid)||!!(await DB.get('admins/'+uid));
   }catch(e){console.warn('profile:',e);}
@@ -504,19 +506,14 @@ async function loadAppByUID(uid){
   rNav();go('home');
 }
 
+// ══ AUTH STATE ══
 auth.onAuthStateChanged(async user=>{
   clearTimeout(_kill);
   if(!user){
-    // Check redirect result
     try{const r=await Promise.race([auth.getRedirectResult(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('t')),3000))]);if(r&&r.user)return;}catch(e){if(e.message!=='t')console.warn(e.code);}
-    // ✅ URL এ UID আছে? FYP King থেকে এসেছে — Google login লাগবে না
-    const _up=new URLSearchParams(window.location.search);
-    const _uid=_up.get('uid')||_up.get('tguid')||_up.get('tg_uid');
-    if(_uid){
-      console.log('Auto-login via URL UID:', _uid);
-      await loadAppByUID(_uid);
-      return;
-    }
+    // ✅ URL এ UID আছে? FYP King App থেকে এসেছে
+    const _uid=new URLSearchParams(window.location.search).get('uid');
+    if(_uid){await loadAppByUID(_uid);return;}
     document.getElementById('ls').style.display='none';
     document.getElementById('loginPg').classList.add('on');
     return;
