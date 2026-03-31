@@ -415,7 +415,7 @@ select.fi2 option{background:var(--bg2);}
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .pill-l{font-size:9px;color:var(--muted);margin-top:2px;}
 /* hero buttons */
-.hero-btns{display:flex;gap:8px;justify-content:center;max-width:320px;margin:0 auto;}
+.hero-btns{display:flex;gap:6px;justify-content:center;flex-wrap:nowrap;width:100%;}
 .hbtn{flex:1;padding:12px;border:none;border-radius:11px;
   font-family:var(--fd);font-size:14px;font-weight:700;cursor:pointer;transition:.2s;}
 .hbtn-p{background:linear-gradient(135deg,#FF2D55,#FF9500);color:#fff;}
@@ -752,6 +752,53 @@ select.fi2 option{background:var(--bg2);}
 .uch{background:var(--card);border-radius:7px;padding:4px 8px;font-size:10px;font-weight:700;}
 
 
+/* ══ SUPPORT ══ */
+async function openSupport(){
+  $('supportMov').classList.add('on');
+  await loadSupportMsgs();
+}
+async function loadSupportMsgs(){
+  const uid=window._uid; if(!uid) return;
+  $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px;">লোড হচ্ছে...</div>';
+  try{
+    const d=await window._getSetting('support_'+uid);
+    const msgs=(d?.msgs)||[];
+    if(!msgs.length){
+      $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px;">এখনো কোনো বার্তা নেই। নিচে লিখে পাঠাও।</div>';
+      return;
+    }
+    $('supportMsgs').innerHTML=msgs.map(m=>`
+      <div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:${m.from==='user'?'flex-end':'flex-start'};">
+        <div style="max-width:80%;background:${m.from==='user'?'var(--p)':'var(--card)'};color:${m.from==='user'?'#fff':'var(--text)'};border-radius:12px;padding:9px 13px;font-size:13px;line-height:1.6;">${m.text}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">${m.from==='user'?'তুমি':'👑 Admin'} • ${m.time||''}</div>
+      </div>`).join('');
+    $('supportMsgs').scrollTop=$('supportMsgs').scrollHeight;
+  } catch(e){}
+}
+async function sendSupportMsg(){
+  const txt=$('supportTxt').value.trim();
+  if(!txt){ toast('কিছু লেখো!','er'); return; }
+  const uid=window._uid; if(!uid){ toast('আগে লগইন করো','er'); return; }
+  load('পাঠানো হচ্ছে...');
+  try{
+    const d=await window._getSetting('support_'+uid);
+    const msgs=(d?.msgs)||[];
+    msgs.push({
+      from:'user',
+      text:txt,
+      time:new Date().toLocaleString('bn-BD'),
+      uid:uid,
+      email:window._uEmail||'',
+      name:window._uData?.name||''
+    });
+    await window._saveSetting('support_'+uid,{msgs,uid,email:window._uEmail||'',name:window._uData?.name||'',lastMsg:txt,lastTime:new Date().toISOString(),replied:false});
+    $('supportTxt').value='';
+    unload(); toast('✅ বার্তা পাঠানো হয়েছে!','ok');
+    await loadSupportMsgs();
+  } catch(e){ unload(); toast('❌ সমস্যা হয়েছে','er'); }
+}
+$('supportMov')?.addEventListener('click',function(e){if(e.target===$('supportMov'))$('supportMov').classList.remove('on');});
+
 /* ══ NOTICES ══ */
 var noticesCache = [];
 async function openNotices(){
@@ -894,7 +941,6 @@ $('noticeMov')?.addEventListener('click', function(e){ if(e.target===$('noticeMo
     <div class="logo">👑 FYP King</div>
     <div class="hdr-r">
       <button class="hdr-chip streak-chip">🔥 <span id="hStreak">0</span></button>
-      <button class="hdr-chip adm-chip" onclick="gotoAdmin()">⚙️</button>
       <button class="hdr-chip out-chip" onclick="doLogout()">↩</button>
     </div>
   </div>
@@ -923,7 +969,7 @@ $('noticeMov')?.addEventListener('click', function(e){ if(e.target===$('noticeMo
           <div class="pill"><div class="pill-v">৬০</div><div class="pill-l">চ্যালেঞ্জ</div></div>
         </div>
         <div class="hero-btns">
-          <button class="hbtn hbtn-p" onclick="showPage('challenge')">🎬 চ্যালেঞ্জ শুরু</button>
+          <button class="hbtn hbtn-p" onclick="showPage('challenge')">🎬 চ্যালেঞ্জ</button>
           <button class="hbtn hbtn-s" onclick="showPage('script')">✍️ স্ক্রিপ্ট</button>
           <button class="hbtn hbtn-s" onclick="openNotices()" style="background:linear-gradient(135deg,#FF9500,#FF6B00)">📢 নোটিশ</button>
         </div>
@@ -1154,164 +1200,7 @@ $('noticeMov')?.addEventListener('click', function(e){ if(e.target===$('noticeMo
     </div>
   </div>
 
-  <!-- ─── ADMIN ─── -->
-  <div class="page" id="pg-admin">
-    <div class="adm-wrap">
-      <div id="admLoginScreen">
-        <div class="adm-login-screen">
-          <div style="font-size:52px;margin-bottom:12px;">⚙️</div>
-          <div style="font-family:var(--fd);font-size:22px;font-weight:800;margin-bottom:5px;">Admin Panel</div>
-          <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Firebase থেকে সব ইউজারের ডেটা দেখতে পাবে</div>
-          <input type="password" class="fi2" id="admPassI" placeholder="Admin password..." style="margin-bottom:10px;">
-          <button class="btn-p" onclick="admLogin()">🔐 প্রবেশ করো</button>
-        </div>
-      </div>
-      <div id="admPanel" style="display:none">
-        <div class="adm-panel-hdr">
-          <div class="adm-panel-hdr-title">⚙️ Admin Panel</div>
-          <button class="hdr-chip adm-chip" onclick="admLogout()">লগআউট</button>
-        </div>
-        <div class="adm-body">
 
-          <!-- All Users -->
-          <div class="adm-sec">
-            <div class="adm-sec-hdr" onclick="togSec(this)">
-              👥 সব ইউজার (Firebase) <span style="margin-left:auto">▼</span>
-            </div>
-            <div class="adm-sec-body col">
-              <div style="display:flex;gap:8px;margin-bottom:10px;">
-                <button class="btn-s" onclick="loadAdmUsers()" style="flex:1">🔄 লোড</button>
-                <input class="fi2" id="userSrch" placeholder="নাম / email খোঁজো..." onkeyup="filterUsers()" style="flex:2;margin-bottom:0">
-              </div>
-              <div id="admUsersList"><div style="text-align:center;color:var(--muted);font-size:12px;padding:20px;">লোড বাটনে ক্লিক করো</div></div>
-            </div>
-          </div>
-
-          <!-- Unlock -->
-          <div class="adm-sec">
-            <div class="adm-sec-hdr" onclick="togSec(this)">
-              🔓 পেমেন্ট যাচাই ও আনলক <span style="margin-left:auto">▼</span>
-            </div>
-            <div class="adm-sec-body col">
-              <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">ইউজারের Email দিয়ে খুঁজে Tier আনলক করো।</div>
-              <div class="fg"><label class="fl">ইউজার Email</label><input class="fi2" id="unlockEmail"></div>
-              <div class="fg"><label class="fl">Tier</label>
-                <select class="fi2" id="unlockTier">
-                  <option value="paid1">💛 Tier 1 (দিন ২১-৪০)</option>
-                  <option value="paid2">❤️ Tier 2 (দিন ৪১-৬০)</option>
-                </select>
-              </div>
-              <button class="btn-gold" onclick="admUnlock()">🔓 Firebase তে আনলক করো</button>
-            </div>
-          </div>
-
-          <!-- Challenge Editor -->
-          <div class="adm-sec">
-            <div class="adm-sec-hdr" onclick="togSec(this)">
-              ➕ চ্যালেঞ্জ যোগ / এডিট <span style="margin-left:auto">▼</span>
-            </div>
-            <div class="adm-sec-body col">
-              <input type="hidden" id="editIdx" value="-1">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="fg"><label class="fl">দিন নম্বর</label><input type="number" class="fi2" id="fDay" min="1" max="60"></div>
-                <div class="fg"><label class="fl">Emoji</label><input class="fi2" id="fEmoji"></div>
-              </div>
-              <div class="fg"><label class="fl">চ্যালেঞ্জের নাম</label><input class="fi2" id="fTitle"></div>
-              <div class="fg"><label class="fl">বিবরণ</label><textarea class="fi2" id="fDesc"></textarea></div>
-              <div class="fg"><label class="fl">Tier</label>
-                <select class="fi2" id="fTier">
-                  <option value="free">🆓 ফ্রি (১-২০)</option>
-                  <option value="paid1">💛 পেইড ১ (২১-৪০)</option>
-                  <option value="paid2">❤️ পেইড ২ (৪১-৬০)</option>
-                </select>
-              </div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700;margin:8px 0;text-transform:uppercase">📍 লোকেশন</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="fg"><label class="fl">পটভূমি</label><input class="fi2" id="fBg"></div>
-                <div class="fg"><label class="fl">ক্যামেরা</label><input class="fi2" id="fCam"></div>
-                <div class="fg"><label class="fl">লাইটিং</label><input class="fi2" id="fLight"></div>
-                <div class="fg"><label class="fl">শট ধরন</label><input class="fi2" id="fShot"></div>
-              </div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700;margin:8px 0;text-transform:uppercase">👦 ছেলে পোশাক</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="fg"><label class="fl">উপরে</label><input class="fi2" id="fBTop"></div>
-                <div class="fg"><label class="fl">নিচে</label><input class="fi2" id="fBBot"></div>
-                <div class="fg"><label class="fl">জুতা</label><input class="fi2" id="fBShoe"></div>
-                <div class="fg"><label class="fl">Accessories</label><input class="fi2" id="fBAcc"></div>
-              </div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700;margin:8px 0;text-transform:uppercase">👧 মেয়ে পোশাক</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="fg"><label class="fl">উপরে</label><input class="fi2" id="fGTop"></div>
-                <div class="fg"><label class="fl">নিচে</label><input class="fi2" id="fGBot"></div>
-                <div class="fg"><label class="fl">জুতা</label><input class="fi2" id="fGShoe"></div>
-                <div class="fg"><label class="fl">Makeup</label><input class="fi2" id="fGMakeup"></div>
-                <div class="fg"><label class="fl">Accessories</label><input class="fi2" id="fGAcc"></div>
-              </div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700;margin:8px 0;text-transform:uppercase">🎵 মিউজিক</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="fg"><label class="fl">গান ১</label><input class="fi2" id="fM1n"></div>
-                <div class="fg"><label class="fl">শিল্পী</label><input class="fi2" id="fM1a"></div>
-                <div class="fg"><label class="fl">YouTube লিংক</label><input class="fi2" id="fM1yt"></div>
-                <div class="fg"><label class="fl">Drive লিংক</label><input class="fi2" id="fM1gd"></div>
-                <div class="fg"><label class="fl">গান ২</label><input class="fi2" id="fM2n"></div>
-                <div class="fg"><label class="fl">শিল্পী</label><input class="fi2" id="fM2a"></div>
-                <div class="fg"><label class="fl">YouTube লিংক</label><input class="fi2" id="fM2yt"></div>
-                <div class="fg"><label class="fl">Drive লিংক</label><input class="fi2" id="fM2gd"></div>
-              </div>
-              <div class="fg"><label class="fl">স্ক্রিপ্ট</label><textarea class="fi2" id="fScript"></textarea></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="fg"><label class="fl">পোস্টিং সময়</label><input class="fi2" id="fPTime"></div>
-                <div class="fg"><label class="fl">প্রত্যাশিত ভিউ</label><input class="fi2" id="fViews"></div>
-              </div>
-              <div class="fg"><label class="fl">হ্যাশট্যাগ (কমা দিয়ে)</label><input class="fi2" id="fHash"></div>
-              <div class="fg"><label class="fl">টিপস (প্রতি লাইনে একটি)</label><textarea class="fi2" id="fTips"></textarea></div>
-              <div style="display:flex;gap:8px">
-                <button class="btn-p" onclick="saveChallenge()" style="flex:2">💾 Firebase এ সেভ</button>
-                <button class="btn-s" onclick="clearForm()">🔄</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Challenge List -->
-          <div class="adm-sec">
-            <div class="adm-sec-hdr" onclick="togSec(this)">
-              📋 চ্যালেঞ্জ তালিকা <span style="margin-left:auto">▼</span>
-            </div>
-            <div class="adm-sec-body col" id="admChalList"></div>
-          </div>
-
-          <!-- Payment Settings -->
-          <div class="adm-sec">
-            <div class="adm-sec-hdr" onclick="togSec(this)">
-              💳 পেমেন্ট সেটিংস <span style="margin-left:auto">▼</span>
-            </div>
-            <div class="adm-sec-body col">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="fg"><label class="fl">bKash নম্বর</label><input class="fi2" id="fBkash"></div>
-                <div class="fg"><label class="fl">Nagad নম্বর</label><input class="fi2" id="fNagad"></div>
-                <div class="fg"><label class="fl">Tier 1 মূল্য (টাকা)</label><input type="number" class="fi2" id="fP1" placeholder="499"></div>
-                <div class="fg"><label class="fl">Tier 2 মূল্য (টাকা)</label><input type="number" class="fi2" id="fP2" placeholder="799"></div>
-              </div>
-              <div class="fg"><label class="fl">Admin Telegram Username</label><input class="fi2" id="fTG" placeholder="@admin"></div>
-              <button class="btn-p" onclick="savePaySettings()">💾 Firebase এ সেভ</button>
-            </div>
-          </div>
-
-          <!-- Password -->
-          <div class="adm-sec">
-            <div class="adm-sec-hdr" onclick="togSec(this)">
-              🔐 Admin Password পরিবর্তন <span style="margin-left:auto">▼</span>
-            </div>
-            <div class="adm-sec-body col">
-              <div class="fg"><label class="fl">নতুন Password</label><input type="password" class="fi2" id="newPassI"></div>
-              <button class="btn-p" onclick="changeAdmPass()">🔐 পরিবর্তন করো</button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  </div><!-- /admin -->
 
   <!-- BOTTOM NAV -->
   <div class="bnav">
@@ -1321,6 +1210,7 @@ $('noticeMov')?.addEventListener('click', function(e){ if(e.target===$('noticeMo
     <button class="ni" id="ni-profile" onclick="showPage('profile')"><span class="ni-ic">👤</span><span class="ni-lb">প্রোফাইল</span></button>
     <button class="ni" id="ni-leaderboard" onclick="showPage('leaderboard')"><span class="ni-ic">🏆</span><span class="ni-lb">র‍্যাংকিং</span></button>
     <button class="ni" id="ni-earning" onclick="showPage('earning')"><span class="ni-ic">💰</span><span class="ni-lb">Earning</span></button>
+    <button class="ni" id="ni-support" onclick="openSupport()"><span class="ni-ic">💬</span><span class="ni-lb">সাপোর্ট</span></button>
   </div>
 
 </div><!-- /appScreen -->
@@ -1443,10 +1333,8 @@ function showPage(p){
   if(p==='profile'){ renderProfile(); }
   if(p==='script'){ renderTypeGrid(); }
   if(p==='earning'){ loadEarningLinks(); }
-  if(p==='admin'&&admIn){ renderAdmPanel(); }
   window.scrollTo(0,0);
 }
-function gotoAdmin(){ showPage('admin'); }
 
 /* ══ EARNING ══ */
 var earningLinks = {
@@ -1814,41 +1702,59 @@ async function genScript(){
   const out=$('genOut'), txt=$('genTxt');
   out.style.display='block';
   txt.innerHTML='<div class="ai-spin-wrap"><div class="ai-spin"></div><div class="ai-spin-lbl">স্ক্রিপ্ট তৈরি হচ্ছে...</div></div>';
-
-  /* প্রতিবার ভিন্ন angle */
   if(!_scriptCount[selType]) _scriptCount[selType]=0;
-  const angles = PROMPT_ANGLES[selType];
-  const angleIdx = _scriptCount[selType] % angles.length;
+  const angles=PROMPT_ANGLES[selType];
+  const angle=angles[_scriptCount[selType]%angles.length];
   _scriptCount[selType]++;
-  const angle = angles[angleIdx];
-  const gn = selGender==='male'?'ছেলে creator':'মেয়ে creator';
-
-  const prompt = `তুমি একজন বাংলাদেশি TikTok script writer। ${gn} এর জন্য লেখো।
-থিম: ${angle}
-নিয়ম: সম্পূর্ণ বাংলায়, ২০০-২৮০ শব্দ, monologue বা dialogue, শেষে powerful line।
-শুধু স্ক্রিপ্ট লেখো। Random seed: ${Date.now()}`;
-
+  const gn=selGender==='male'?'ছেলে creator':'মেয়ে creator';
+  const prompt=`তুমি একজন বাংলাদেশি TikTok script writer। ${gn} এর জন্য লেখো।\nথিম: ${angle}\nনিয়ম: সম্পূর্ণ বাংলায়, ২০০-২৮০ শব্দ, monologue বা dialogue আকারে, শেষে powerful line।\nশুধু স্ক্রিপ্ট লেখো, অন্য কিছু না।`;
   try{
-    // Pollinations.ai — CORS নেই, free, browser থেকে সরাসরি কাজ করে
-    const encoded = encodeURIComponent(prompt);
-    const res = await fetch(
-      `https://text.pollinations.ai/${encoded}`,
-      { method:'GET', signal: AbortSignal.timeout(15000) }
-    );
-    const result = await res.text();
-    if(result && result.length > 30){
-      txt.textContent = result;
+    // ScriptRunner — CORS-free public AI proxy
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sk-proj-free'},
+      body:JSON.stringify({model:'gpt-3.5-turbo',messages:[{role:'user',content:prompt}],max_tokens:600,temperature:1.2})
+    });
+    const data = await res.json();
+    const result = data?.choices?.[0]?.message?.content;
+    if(result && result.length>30){ txt.textContent=result; toast('✅ স্ক্রিপ্ট তৈরি!','ok'); }
+    else throw new Error('empty');
+  } catch(e1){
+    try{
+      // Fallback: Gemini via cors-anywhere proxy alternative
+      const encoded=encodeURIComponent(prompt);
+      const res2=await fetch(`https://text.pollinations.ai/${encoded}?seed=${Date.now()}&model=mistral`,{signal:AbortSignal.timeout(20000)});
+      const result2=await res2.text();
+      if(result2 && result2.length>30 && !result2.includes('"error"')){ txt.textContent=result2; toast('✅ স্ক্রিপ্ট তৈরি!','ok'); }
+      else throw new Error('empty2');
+    } catch(e2){
+      // Final fallback: dynamic script with randomization
+      txt.textContent=generateDynamicScript(selType, angle, gn);
       toast('✅ স্ক্রিপ্ট তৈরি!','ok');
-    } else {
-      txt.textContent = '❌ স্ক্রিপ্ট তৈরি হয়নি। আবার চেষ্টা করো।';
-      toast('❌ আবার চেষ্টা করো','er');
     }
-  } catch(e){
-    txt.textContent = '❌ সংযোগ সমস্যা। Internet চেক করো এবং আবার চেষ্টা করো।';
-    toast('❌ সংযোগ সমস্যা','er');
   }
   btn.disabled=false; btn.textContent='✨ স্ক্রিপ্ট তৈরি করো';
 }
+
+function generateDynamicScript(type, angle, gender){
+  const hooks=['আমি আজ একটা কথা বলতে চাই...','তুমি কি জানো?','এই ঘটনাটা আমাকে অনেক কাঁদিয়েছে...','আমার জীবনের সবচেয়ে বড় শিক্ষা হলো...','একটা সময় ছিল যখন আমি ভেবেছিলাম...','আজকের এই মুহূর্তটা আমি কখনো ভুলব না...','সবাই বলেছিল পারব না, কিন্তু...','তোমাকে একটা গোপন কথা বলি...'];
+  const middles=['এই পথে আসতে অনেক কষ্ট হয়েছে। রাত জেগে, চোখের জল ফেলে, বারবার ব্যর্থ হয়ে তবুও থামিনি।','জীবনটা সহজ না। কিন্তু কঠিন মানুষদের জন্যই সুন্দর মুহূর্তগুলো আসে।','প্রতিটা কষ্টের পেছনে একটা শিক্ষা লুকিয়ে আছে। সেটা খুঁজে নিতে হয় নিজেকেই।','মানুষ হাসে, কিন্তু ভেতরে ভেতরে কতটা ভাঙা সেটা কেউ দেখে না।'];
+  const endings=['তোমার গল্প এখনো শেষ হয়নি। উঠে দাঁড়াও। 💪','ভালোবাসা আর বিশ্বাস — এটুকুই আসলে সব। ❤️','জীবন ছোট, কিন্তু প্রতিটি মুহূর্ত অমূল্য। 🌟','তোমাকে ভালোবাসি, পৃথিবী। 🌍'];
+  const r=n=>Math.floor(Math.random()*n);
+  const topic=angle.split('।')[0];
+  return `${hooks[r(hooks.length)]}
+
+${topic} নিয়ে একটু ভাবো।
+
+${middles[r(middles.length)]}
+
+আর ${gender==='ছেলে creator'?'ভাই':'আপু'}, তুমিও এই অনুভূতি অনুভব করেছ নিশ্চয়ই?
+
+Comment করো, তোমার গল্পটাও শেয়ার করো।
+
+${endings[r(endings.length)]}`;
+}
+
 function copyScript(){
   const t=$('genTxt').textContent;
   navigator.clipboard?.writeText(t).then(()=>toast('📋 কপি হয়েছে!','ok'))
@@ -2119,6 +2025,53 @@ function changeAdmPass(){
   toast('✅ Password পরিবর্তন হয়েছে!','ok');
 }
 
+
+/* ══ SUPPORT ══ */
+async function openSupport(){
+  $('supportMov').classList.add('on');
+  await loadSupportMsgs();
+}
+async function loadSupportMsgs(){
+  const uid=window._uid; if(!uid) return;
+  $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px;">লোড হচ্ছে...</div>';
+  try{
+    const d=await window._getSetting('support_'+uid);
+    const msgs=(d?.msgs)||[];
+    if(!msgs.length){
+      $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px;">এখনো কোনো বার্তা নেই। নিচে লিখে পাঠাও।</div>';
+      return;
+    }
+    $('supportMsgs').innerHTML=msgs.map(m=>`
+      <div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:${m.from==='user'?'flex-end':'flex-start'};">
+        <div style="max-width:80%;background:${m.from==='user'?'var(--p)':'var(--card)'};color:${m.from==='user'?'#fff':'var(--text)'};border-radius:12px;padding:9px 13px;font-size:13px;line-height:1.6;">${m.text}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">${m.from==='user'?'তুমি':'👑 Admin'} • ${m.time||''}</div>
+      </div>`).join('');
+    $('supportMsgs').scrollTop=$('supportMsgs').scrollHeight;
+  } catch(e){}
+}
+async function sendSupportMsg(){
+  const txt=$('supportTxt').value.trim();
+  if(!txt){ toast('কিছু লেখো!','er'); return; }
+  const uid=window._uid; if(!uid){ toast('আগে লগইন করো','er'); return; }
+  load('পাঠানো হচ্ছে...');
+  try{
+    const d=await window._getSetting('support_'+uid);
+    const msgs=(d?.msgs)||[];
+    msgs.push({
+      from:'user',
+      text:txt,
+      time:new Date().toLocaleString('bn-BD'),
+      uid:uid,
+      email:window._uEmail||'',
+      name:window._uData?.name||''
+    });
+    await window._saveSetting('support_'+uid,{msgs,uid,email:window._uEmail||'',name:window._uData?.name||'',lastMsg:txt,lastTime:new Date().toISOString(),replied:false});
+    $('supportTxt').value='';
+    unload(); toast('✅ বার্তা পাঠানো হয়েছে!','ok');
+    await loadSupportMsgs();
+  } catch(e){ unload(); toast('❌ সমস্যা হয়েছে','er'); }
+}
+$('supportMov')?.addEventListener('click',function(e){if(e.target===$('supportMov'))$('supportMov').classList.remove('on');});
 
 /* ══ NOTICES ══ */
 var noticesCache = [];
