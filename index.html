@@ -891,6 +891,7 @@ select.fi2 option{background:var(--bg2);}
         </div>
         <div class="hero-btns">
           <button class="hbtn hbtn-p" onclick="showPage('challenge')">🎬 চ্যালেঞ্জ শুরু</button>
+          <button class="hbtn" onclick="showPage('notice')" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;margin-top:8px;">📢 নোটিশ বোর্ড</button>
           <button class="hbtn hbtn-s" onclick="showPage('script')">✍️ স্ক্রিপ্ট</button>
         </div>
       </div>
@@ -1026,6 +1027,18 @@ select.fi2 option{background:var(--bg2);}
   </div>
 
   <!-- ─── LEADERBOARD ─── -->
+  <!-- ─── NOTICE BOARD PAGE ─── -->
+  <div class="page" id="pg-notice">
+    <div class="sec-t" style="margin-top:16px">📢 নোটিশ বোর্ড</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Admin এর নির্দেশনা ও গিফট</div>
+    <div id="noticeList">
+      <div style="text-align:center;padding:40px 20px;color:var(--muted);">
+        <div style="font-size:40px;margin-bottom:12px;">📭</div>
+        <div>কোনো নোটিশ নেই</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── EARNING PAGE ─── -->
   <div class="page" id="pg-earning">
     <div class="sec-t" style="margin-top:16px">💰 Earning</div>
@@ -1036,14 +1049,9 @@ select.fi2 option{background:var(--bg2);}
       <button class="btn-p" onclick="openEarningLink('ftyGame')">🎮 FTY Game খেলো</button>
     </div>
     <div style="background:var(--card);border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid var(--border);">
-      <div style="font-size:18px;font-weight:800;margin-bottom:6px;">📋 Everyday Earning</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:6px;">📋 Everyday Task</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">প্রতিদিনের টাস্ক করো এবং আয় করো</div>
       <button class="btn-p" onclick="openEarningLink('everydayTask')" style="background:linear-gradient(135deg,#0088cc,#0066aa)">📋 Telegram Bot এ যাও</button>
-    </div>
-    <div style="background:var(--card);border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid var(--border);">
-      <div style="font-size:18px;font-weight:800;margin-bottom:6px;">🚀 Start Your Business</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">তোমার ব্যবসা শুরু করো এবং আয় বাড়াও</div>
-      <button class="btn-p" onclick="openEarningLink('startBusiness')" style="background:linear-gradient(135deg,#00b894,#00795b)">🚀 Business শুরু করো</button>
     </div>
   </div>
 
@@ -1272,6 +1280,44 @@ select.fi2 option{background:var(--bg2);}
               <div class="fg"><label class="fl">নতুন Password</label><input type="password" class="fi2" id="newPassI"></div>
               <button class="btn-p" onclick="changeAdmPass()">🔐 পরিবর্তন করো</button>
             </div>
+
+            <!-- ─── NOTICE MANAGEMENT ─── -->
+            <div class="adm-sec">
+              <div class="adm-sec-t">📢 নোটিশ পাঠাও</div>
+              <div class="fg">
+                <label class="fl">নোটিশ টাইটেল</label>
+                <input class="fi2" id="noticeTitle" placeholder="যেমন: গুরুত্বপূর্ণ ঘোষণা">
+              </div>
+              <div class="fg">
+                <label class="fl">বিস্তারিত বার্তা</label>
+                <textarea class="fi2" id="noticeBody" rows="4" placeholder="এখানে নির্দেশনা বা তথ্য লেখো..." style="resize:vertical;min-height:80px;"></textarea>
+              </div>
+              <div class="fg">
+                <label class="fl">লিঙ্ক (ঐচ্ছিক)</label>
+                <input class="fi2" id="noticeLink" placeholder="https://...">
+              </div>
+              <div class="fg">
+                <label class="fl">গিফট ফাইল লিঙ্ক (ঐচ্ছিক — download এর জন্য)</label>
+                <input class="fi2" id="noticeGift" placeholder="https://... (PDF, Image, ZIP)">
+              </div>
+              <div class="fg">
+                <label class="fl">ধরন</label>
+                <select class="fi2" id="noticeType">
+                  <option value="info">ℹ️ সাধারণ তথ্য</option>
+                  <option value="urgent">🚨 জরুরি</option>
+                  <option value="gift">🎁 গিফট</option>
+                  <option value="link">🔗 লিঙ্ক শেয়ার</option>
+                  <option value="task">📋 টাস্ক</option>
+                </select>
+              </div>
+              <button class="btn-p" onclick="sendNotice()" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe)">📢 সব ইউজারকে পাঠাও</button>
+              <div style="margin-top:16px;">
+                <div class="fl" style="margin-bottom:8px;">পুরনো নোটিশ</div>
+                <div id="admNoticeList" style="max-height:200px;overflow-y:auto;"></div>
+                <button class="btn-s" onclick="loadAdmNotices()" style="margin-top:8px;">🔄 রিফ্রেশ</button>
+              </div>
+            </div>
+            </div>
           </div>
 
         </div>
@@ -1286,6 +1332,7 @@ select.fi2 option{background:var(--bg2);}
     <button class="ni" id="ni-challenge" onclick="showPage('challenge')"><span class="ni-ic">🎬</span><span class="ni-lb">চ্যালেঞ্জ</span></button>
     <button class="ni" id="ni-profile" onclick="showPage('profile')"><span class="ni-ic">👤</span><span class="ni-lb">প্রোফাইল</span></button>
     <button class="ni" id="ni-leaderboard" onclick="showPage('leaderboard')"><span class="ni-ic">🏆</span><span class="ni-lb">র‍্যাংকিং</span></button>
+    <button class="ni" id="ni-notice" onclick="showPage('notice')"><span class="ni-ic">📢</span><span class="ni-lb">নোটিশ</span></button>
     <button class="ni" id="ni-earning" onclick="showPage('earning')"><span class="ni-ic">💰</span><span class="ni-lb">Earning</span></button>
   </div>
 
@@ -1409,6 +1456,7 @@ function showPage(p){
   if(p==='profile'){ renderProfile(); }
   if(p==='script'){ renderTypeGrid(); }
   if(p==='earning'){ loadEarningLinks(); }
+  if(p==='notice'){ loadNotices(); }
   if(p==='admin'&&admIn){ renderAdmPanel(); }
   window.scrollTo(0,0);
 }
@@ -1416,9 +1464,8 @@ function gotoAdmin(){ showPage('admin'); }
 
 /* ══ EARNING ══ */
 var earningLinks = {
-  ftyGame:       'https://fty-game.vercel.app/',
-  everydayTask:  'https://t.me/fypkingtiktokbot',
-  startBusiness: 'https://new-start-business.vercel.app/'
+  ftyGame:      'https://fty-game.vercel.app/',
+  everydayTask: 'https://t.me/fypkingtiktokbot'
 };
 function openEarningLink(key){
   var url = earningLinks[key];
@@ -1811,26 +1858,38 @@ async function genScript(){
   out.style.display='block';
   txt.innerHTML='<div class="ai-spin-wrap"><div class="ai-spin"></div><div class="ai-spin-lbl">স্ক্রিপ্ট তৈরি হচ্ছে...</div></div>';
 
-  /* প্রতিবার ভিন্ন angle বেছে নাও */
-  if(!_scriptCount[selType]) _scriptCount[selType]=0;
+  /* প্রতিবার সম্পূর্ণ ভিন্ন script পেতে random seed ব্যবহার */
   const angles = PROMPT_ANGLES[selType];
-  const angleIdx = _scriptCount[selType] % angles.length;
-  _scriptCount[selType]++;
+  // পুরোপুরি random — একই angle দুইবার না আসার জন্য
+  const usedKey = 'used_'+selType;
+  let used = JSON.parse(sessionStorage.getItem(usedKey)||'[]');
+  let available = angles.map((_,i)=>i).filter(i=>!used.includes(i));
+  if(available.length===0){ used=[]; available=angles.map((_,i)=>i); }
+  const angleIdx = available[Math.floor(Math.random()*available.length)];
+  used.push(angleIdx);
+  sessionStorage.setItem(usedKey, JSON.stringify(used));
   const angle = angles[angleIdx];
 
-  const fullPrompt = `তুমি একজন বাংলাদেশি TikTok script writer। 
-নিচের theme এ একটি TikTok ভিডিও স্ক্রিপ্ট লেখো:
+  // Random seed যোগ করো যাতে Gemini প্রতিবার নতুন output দেয়
+  const randomSeed = Math.floor(Math.random()*99999);
+  const timeStamp = new Date().toLocaleTimeString('bn-BD');
+
+  const fullPrompt = `তুমি একজন creative বাংলাদেশি TikTok script writer।
+Seed: ${randomSeed} | Time: ${timeStamp}
+
+নিচের theme এ একটি সম্পূর্ণ নতুন ও অনন্য TikTok ভিডিও স্ক্রিপ্ট লেখো:
 
 থিম: ${angle}
 ${gn}
 
-নিয়ম:
+গুরুত্বপূর্ণ নিয়ম:
+- এই মুহূর্তে সম্পূর্ণ নতুন ও unique গল্প লেখো — আগের কোনো script repeat করবে না
 - সম্পূর্ণ বাংলায় লেখো
-- ২০০-২৮০ শব্দের মধ্যে রাখো
-- কথোপকথন বা monologue আকারে লেখো
+- ২০০-২৮০ শব্দ
+- কথোপকথন বা monologue আকারে
 - আবেগ স্পষ্ট রাখো
-- শেষে একটা powerful line দাও যা দর্শক মনে রাখবে
-- শুধু স্ক্রিপ্ট লেখো, অন্য কিছু না`;
+- শেষে একটা powerful line দাও
+- শুধু script লেখো, কোনো intro বা explanation না`;
 
   try{
     const res = await fetch(
@@ -1840,7 +1899,13 @@ ${gn}
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           contents:[{parts:[{text: fullPrompt}]}],
-          generationConfig:{temperature:1.1, maxOutputTokens:700}
+          generationConfig:{
+            temperature:1.4,
+            topP:0.95,
+            topK:64,
+            maxOutputTokens:800,
+            candidateCount:1
+          }
         })
       }
     );
@@ -1858,6 +1923,92 @@ function copyScript(){
   navigator.clipboard?.writeText(t).then(()=>toast('📋 কপি হয়েছে!','ok'))
     .catch(()=>{ const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);toast('📋 কপি!','ok'); });
 }
+// ══ NOTICE / ANNOUNCEMENT ══
+async function loadNotices(){
+  const list = document.getElementById('noticeList');
+  if(!list) return;
+  try{
+    const snap = await window._db().ref('notices').orderByChild('ts').limitToLast(20).once('value');
+    if(!snap.exists()){ 
+      list.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--muted);"><div style="font-size:40px;margin-bottom:12px;">📭</div><div>কোনো নোটিশ নেই</div></div>';
+      return;
+    }
+    const items = [];
+    snap.forEach(c=>items.unshift({k:c.key,...c.val()}));
+    const icons={info:'ℹ️',urgent:'🚨',gift:'🎁',link:'🔗',task:'📋'};
+    const colors={info:'#6c5ce7',urgent:'#e17055',gift:'#00b894',link:'#0984e3',task:'#fdcb6e'};
+    list.innerHTML = items.map(n=>`
+      <div style="background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid var(--border);border-left:4px solid ${colors[n.type]||'#6c5ce7'};">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:18px;">${icons[n.type]||'📢'}</span>
+          <div style="font-size:15px;font-weight:800;">${n.title||'নোটিশ'}</div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.6;">${(n.body||'').replace(/
+/g,'<br>')}</div>
+        ${n.link?`<a href="${n.link}" target="_blank" onclick="openExternalLink('${n.link}');return false;" style="display:inline-block;padding:8px 14px;background:linear-gradient(135deg,#0984e3,#74b9ff);color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:8px;">🔗 লিঙ্ক খুলুন</a>`:''}
+        ${n.gift?`<br><a href="${n.gift}" download onclick="downloadGift('${n.gift}','${n.title||'gift'}');return false;" style="display:inline-block;padding:8px 14px;background:linear-gradient(135deg,#00b894,#00cec9);color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">🎁 গিফট ডাউনলোড করো</a>`:''}
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;">${n.ts?new Date(n.ts).toLocaleString('bn-BD'):''}</div>
+      </div>
+    `).join('');
+  }catch(e){ console.warn('notices:',e); }
+}
+
+function downloadGift(url, name){
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.target = '_blank';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('⬇️ ডাউনলোড শুরু হয়েছে!','ok');
+}
+
+function openExternalLink(url){
+  if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.openLink){
+    window.Telegram.WebApp.openLink(url);
+  } else {
+    window.open(url,'_blank');
+  }
+}
+
+async function sendNotice(){
+  const title = document.getElementById('noticeTitle').value.trim();
+  const body  = document.getElementById('noticeBody').value.trim();
+  const link  = document.getElementById('noticeLink').value.trim();
+  const gift  = document.getElementById('noticeGift').value.trim();
+  const type  = document.getElementById('noticeType').value;
+  if(!title||!body){ toast('টাইটেল ও বার্তা দাও!','er'); return; }
+  try{
+    await window._db().ref('notices').push({title,body,link,gift,type,ts:Date.now()});
+    toast('✅ নোটিশ পাঠানো হয়েছে!','ok');
+    document.getElementById('noticeTitle').value='';
+    document.getElementById('noticeBody').value='';
+    document.getElementById('noticeLink').value='';
+    document.getElementById('noticeGift').value='';
+    loadAdmNotices();
+  }catch(e){ toast('❌ Error: '+e.message,'er'); }
+}
+
+async function loadAdmNotices(){
+  const el = document.getElementById('admNoticeList'); if(!el) return;
+  try{
+    const snap = await window._db().ref('notices').orderByChild('ts').limitToLast(10).once('value');
+    if(!snap.exists()){ el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;">কোনো নোটিশ নেই</div>'; return; }
+    const items=[];snap.forEach(c=>items.unshift({k:c.key,...c.val()}));
+    el.innerHTML=items.map(n=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:12px;">
+      <span>${n.title||'?'}</span>
+      <button onclick="deleteNotice('${n.k}')" style="background:#e17055;color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;">🗑️</button>
+    </div>`).join('');
+  }catch(e){}
+}
+
+async function deleteNotice(k){
+  if(!confirm('এই নোটিশ মুছবেন?')) return;
+  await window._db().ref('notices/'+k).remove();
+  toast('মুছে ফেলা হয়েছে','ok');
+  loadAdmNotices();
+}
+
+// Notice page load হলে notices load করো
+const _origShowPage = typeof showPage === 'function' ? showPage : null;
+
 function sampleScript(t){
   return {
     sad:`আমার মা আমাকে বলতেন,\n"বাবা, তুমি একদিন অনেক বড় হবে..."\n\nআজ সে নেই।\nকিন্তু তার কথা মনে হলে চোখ ভিজে যায়।\n\nআম্মু, তোমাকে অনেক মিস করি। ❤️`,
