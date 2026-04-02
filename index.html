@@ -759,19 +759,23 @@ async function loadSupportMsgs(){
   const uid=window._uid; if(!uid) return;
   $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px;">লোড হচ্ছে...</div>';
   try{
-    const d=await window._getSetting('support_'+uid);
-    const msgs=(d?.msgs)||[];
+    const d = await window._getSetting('support_'+uid);
+    let msgs = [];
+    if(d && d.msgs){
+      try{ msgs = typeof d.msgs==='string' ? JSON.parse(d.msgs) : (Array.isArray(d.msgs)?d.msgs:[]); }
+      catch(e){ msgs=[]; }
+    }
     if(!msgs.length){
-      $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px;">এখনো কোনো বার্তা নেই। নিচে লিখে পাঠাও।</div>';
+      $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px;">💬<br><br>এখনো কোনো বার্তা নেই।<br>নিচে লিখে পাঠাও!</div>';
       return;
     }
     $('supportMsgs').innerHTML=msgs.map(m=>`
-      <div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:${m.from==='user'?'flex-end':'flex-start'};">
-        <div style="max-width:80%;background:${m.from==='user'?'var(--p)':'var(--card)'};color:${m.from==='user'?'#fff':'var(--text)'};border-radius:12px;padding:9px 13px;font-size:13px;line-height:1.6;">${m.text}</div>
+      <div style="margin-bottom:12px;display:flex;flex-direction:column;align-items:${m.from==='user'?'flex-end':'flex-start'};">
+        <div style="max-width:82%;background:${m.from==='user'?'var(--p)':'var(--card)'};color:${m.from==='user'?'#fff':'var(--text)'};border-radius:${m.from==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px'};padding:10px 14px;font-size:13px;line-height:1.65;border:${m.from==='user'?'none':'1px solid var(--border)'};">${m.text}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px;">${m.from==='user'?'তুমি':'👑 Admin'} • ${m.time||''}</div>
       </div>`).join('');
     $('supportMsgs').scrollTop=$('supportMsgs').scrollHeight;
-  } catch(e){}
+  } catch(e){ $('supportMsgs').innerHTML='<div style="color:var(--muted);font-size:12px;padding:12px;">লোড হয়নি</div>'; }
 }
 async function sendSupportMsg(){
   const txt=$('supportTxt').value.trim();
@@ -779,17 +783,23 @@ async function sendSupportMsg(){
   const uid=window._uid; if(!uid){ toast('আগে লগইন করো','er'); return; }
   load('পাঠানো হচ্ছে...');
   try{
-    const d=await window._getSetting('support_'+uid);
-    const msgs=(d?.msgs)||[];
-    msgs.push({
-      from:'user',
-      text:txt,
-      time:new Date().toLocaleString('bn-BD'),
-      uid:uid,
-      email:window._uEmail||'',
-      name:window._uData?.name||''
+    const d = await window._getSetting('support_'+uid);
+    let msgs = [];
+    if(d && d.msgs){
+      try{ msgs = typeof d.msgs==='string' ? JSON.parse(d.msgs) : (Array.isArray(d.msgs)?d.msgs:[]); }
+      catch(e){ msgs=[]; }
+    }
+    msgs.push({ from:'user', text:txt, time:new Date().toLocaleString('bn-BD') });
+    // JSON.stringify করে save — toFS() array handle করে না
+    await window._saveSetting('support_'+uid, {
+      msgs:     JSON.stringify(msgs),
+      uid:      uid,
+      email:    window._uEmail||'',
+      name:     (window._uData&&window._uData.name)||'',
+      lastMsg:  txt,
+      lastTime: new Date().toISOString(),
+      replied:  false
     });
-    await window._saveSetting('support_'+uid,{msgs,uid,email:window._uEmail||'',name:window._uData?.name||'',lastMsg:txt,lastTime:new Date().toISOString(),replied:false});
     $('supportTxt').value='';
     unload(); toast('✅ বার্তা পাঠানো হয়েছে!','ok');
     await loadSupportMsgs();
@@ -1334,8 +1344,11 @@ async function loadSupportPageMsgs(){
   msgDiv.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px;">লোড হচ্ছে...</div>';
   try{
     const d = await window._getSetting('support_' + uid);
-    let rawMsgs = (d && d.msgs) || [];
-    if(typeof rawMsgs === 'string'){ try{ rawMsgs = JSON.parse(rawMsgs); }catch(e){ rawMsgs=[]; } }
+    let rawMsgs = [];
+    if(d && d.msgs){
+      try{ rawMsgs = typeof d.msgs==='string' ? JSON.parse(d.msgs) : (Array.isArray(d.msgs)?d.msgs:[]); }
+      catch(e){ rawMsgs=[]; }
+    }
     const msgs = Array.isArray(rawMsgs) ? rawMsgs : [];
     if(!msgs.length){
       msgDiv.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:40px 20px;">💬<br><br>এখনো কোনো বার্তা নেই।<br>নিচে লিখে পাঠাও!</div>';
@@ -1360,8 +1373,11 @@ async function sendSupportPageMsg(){
   load('পাঠানো হচ্ছে...');
   try{
     const d = await window._getSetting('support_' + uid);
-    let rawMsgs = (d && d.msgs) || [];
-    if(typeof rawMsgs === 'string'){ try{ rawMsgs = JSON.parse(rawMsgs); }catch(e){ rawMsgs=[]; } }
+    let rawMsgs = [];
+    if(d && d.msgs){
+      try{ rawMsgs = typeof d.msgs==='string' ? JSON.parse(d.msgs) : (Array.isArray(d.msgs)?d.msgs:[]); }
+      catch(e){ rawMsgs=[]; }
+    }
     const msgs = Array.isArray(rawMsgs) ? rawMsgs : [];
     msgs.push({
       from:'user', text:txt,
@@ -1370,13 +1386,13 @@ async function sendSupportPageMsg(){
       name:(window._uData && window._uData.name)||''
     });
     await window._saveSetting('support_'+uid, {
-      msgs: JSON.stringify(msgs),
-      uid: uid,
-      email: window._uEmail||'',
-      name: (window._uData && window._uData.name)||'',
-      lastMsg: txt,
+      msgs:     JSON.stringify(msgs),
+      uid:      uid,
+      email:    window._uEmail||'',
+      name:     (window._uData&&window._uData.name)||'',
+      lastMsg:  txt,
       lastTime: new Date().toISOString(),
-      replied: false
+      replied:  'false'
     });
     if(txtEl) txtEl.value = '';
     unload();
@@ -2142,19 +2158,23 @@ async function loadSupportMsgs(){
   const uid=window._uid; if(!uid) return;
   $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px;">লোড হচ্ছে...</div>';
   try{
-    const d=await window._getSetting('support_'+uid);
-    const msgs=(d?.msgs)||[];
+    const d = await window._getSetting('support_'+uid);
+    let msgs = [];
+    if(d && d.msgs){
+      try{ msgs = typeof d.msgs==='string' ? JSON.parse(d.msgs) : (Array.isArray(d.msgs)?d.msgs:[]); }
+      catch(e){ msgs=[]; }
+    }
     if(!msgs.length){
-      $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px;">এখনো কোনো বার্তা নেই। নিচে লিখে পাঠাও।</div>';
+      $('supportMsgs').innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px;">💬<br><br>এখনো কোনো বার্তা নেই।<br>নিচে লিখে পাঠাও!</div>';
       return;
     }
     $('supportMsgs').innerHTML=msgs.map(m=>`
-      <div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:${m.from==='user'?'flex-end':'flex-start'};">
-        <div style="max-width:80%;background:${m.from==='user'?'var(--p)':'var(--card)'};color:${m.from==='user'?'#fff':'var(--text)'};border-radius:12px;padding:9px 13px;font-size:13px;line-height:1.6;">${m.text}</div>
+      <div style="margin-bottom:12px;display:flex;flex-direction:column;align-items:${m.from==='user'?'flex-end':'flex-start'};">
+        <div style="max-width:82%;background:${m.from==='user'?'var(--p)':'var(--card)'};color:${m.from==='user'?'#fff':'var(--text)'};border-radius:${m.from==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px'};padding:10px 14px;font-size:13px;line-height:1.65;border:${m.from==='user'?'none':'1px solid var(--border)'};">${m.text}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px;">${m.from==='user'?'তুমি':'👑 Admin'} • ${m.time||''}</div>
       </div>`).join('');
     $('supportMsgs').scrollTop=$('supportMsgs').scrollHeight;
-  } catch(e){}
+  } catch(e){ $('supportMsgs').innerHTML='<div style="color:var(--muted);font-size:12px;padding:12px;">লোড হয়নি</div>'; }
 }
 async function sendSupportMsg(){
   const txt=$('supportTxt').value.trim();
@@ -2162,17 +2182,23 @@ async function sendSupportMsg(){
   const uid=window._uid; if(!uid){ toast('আগে লগইন করো','er'); return; }
   load('পাঠানো হচ্ছে...');
   try{
-    const d=await window._getSetting('support_'+uid);
-    const msgs=(d?.msgs)||[];
-    msgs.push({
-      from:'user',
-      text:txt,
-      time:new Date().toLocaleString('bn-BD'),
-      uid:uid,
-      email:window._uEmail||'',
-      name:window._uData?.name||''
+    const d = await window._getSetting('support_'+uid);
+    let msgs = [];
+    if(d && d.msgs){
+      try{ msgs = typeof d.msgs==='string' ? JSON.parse(d.msgs) : (Array.isArray(d.msgs)?d.msgs:[]); }
+      catch(e){ msgs=[]; }
+    }
+    msgs.push({ from:'user', text:txt, time:new Date().toLocaleString('bn-BD') });
+    // JSON.stringify করে save — toFS() array handle করে না
+    await window._saveSetting('support_'+uid, {
+      msgs:     JSON.stringify(msgs),
+      uid:      uid,
+      email:    window._uEmail||'',
+      name:     (window._uData&&window._uData.name)||'',
+      lastMsg:  txt,
+      lastTime: new Date().toISOString(),
+      replied:  false
     });
-    await window._saveSetting('support_'+uid,{msgs,uid,email:window._uEmail||'',name:window._uData?.name||'',lastMsg:txt,lastTime:new Date().toISOString(),replied:false});
     $('supportTxt').value='';
     unload(); toast('✅ বার্তা পাঠানো হয়েছে!','ok');
     await loadSupportMsgs();
