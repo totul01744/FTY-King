@@ -47,13 +47,21 @@ function validTok(){ return tok.id && Date.now()<tok.exp; }
 
 /* ── Auth helpers ── */
 async function authReq(action, body){
-  var r = await fetch(AUTHURL+action+"?key="+APIKEY, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(body)
-  });
-  var d = await r.json();
-  if(d.error) throw {code:d.error.message, message:d.error.message};
-  return d;
+  try{
+    var r = await fetch(AUTHURL+action+"?key="+APIKEY, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    var d = await r.json();
+    if(d.error){
+      var msg = (d.error.errors && d.error.errors[0] && d.error.errors[0].message) || d.error.message || 'AUTH_ERROR';
+      throw {code:msg, message:msg};
+    }
+    return d;
+  } catch(e){
+    if(e.code) throw e; // already formatted
+    throw {code:'Failed to fetch', message:'Internet সংযোগ নেই বা server সমস্যা'};
+  }
 }
 
 /* ── Firestore helpers ── */
@@ -1238,7 +1246,14 @@ let rankUnsub = null, allUsersCache = [], imgB64 = null;
 
 /* ══ HELPERS ══ */
 const $ = id => document.getElementById(id);
-function toast(msg, t='ok'){ const el=$('toast'); el.textContent=msg; el.className=`toast show ${t}`; setTimeout(()=>el.classList.remove('show'),3000); }
+function toast(msg, t='ok'){
+  const el=$('toast');
+  if(!el){ alert(msg); return; }
+  el.textContent=msg;
+  el.className='toast show '+(t||'ok');
+  clearTimeout(el._tm);
+  el._tm=setTimeout(()=>el.classList.remove('show'),3500);
+}
 function load(txt){ $('globalLoader').classList.add('on'); $('loaderTxt').textContent=txt||'লোড হচ্ছে...'; }
 function unload(){ $('globalLoader').classList.remove('on'); }
 function fmtN(n){ if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return n||0; }
@@ -1253,22 +1268,32 @@ function switchAuthTab(tab,btn){
 async function doLogin(){
   const em=$('lEmail').value.trim(), pw=$('lPass').value;
   if(!em||!pw){ toast('Email ও Password দাও','er'); return; }
+  if(!em.includes('@')){ toast('সঠিক Email দাও','er'); return; }
   load('লগইন হচ্ছে...');
-  try{ await window._login(em,pw); toast('✅ লগইন সফল!','ok'); }
-  catch(e){ toast('❌ '+getErrMsg(e),'er'); }
-  unload();
+  try{
+    await window._login(em,pw);
+    // _login এর ভেতরে goApp() call হয়, তাই এখানে আর কিছু লাগবে না
+  } catch(e){
+    unload();
+    toast('❌ '+getErrMsg(e),'er');
+  }
 }
 async function doSignup(){
   const nm=$('sName').value.trim(), em=$('sEmail').value.trim(), pw=$('sPass').value;
   if(!nm||!em||!pw){ toast('সব তথ্য দাও','er'); return; }
+  if(!em.includes('@')){ toast('সঠিক Email দাও','er'); return; }
   if(pw.length<6){ toast('Password কমপক্ষে ৬ অক্ষর দাও','er'); return; }
   load('অ্যাকাউন্ট তৈরি হচ্ছে...');
   try{
     const cred = await window._register(em,pw);
+    // নাম save করো
     await window._saveUser(cred.user.uid,{name:nm,email:em});
-    toast('✅ অ্যাকাউন্ট তৈরি সফল!','ok');
-  } catch(e){ toast('❌ '+getErrMsg(e),'er'); }
-  unload();
+    if(window._uData) window._uData.name = nm;
+    // _register এর ভেতরে goApp() call হয়
+  } catch(e){
+    unload();
+    toast('❌ '+getErrMsg(e),'er');
+  }
 }
 async function doForgotPass(){
   const em=$('lEmail').value.trim();
@@ -1291,12 +1316,17 @@ async function doLogout(){
   toast('👋 লগআউট হয়েছে','ok');
 }
 function getErrMsg(e){
-  if(e.code==='auth/user-not-found') return 'এই Email নেই';
-  if(e.code==='auth/wrong-password') return 'ভুল Password';
-  if(e.code==='auth/email-already-in-use') return 'Email টি ইতিমধ্যে ব্যবহৃত';
-  if(e.code==='auth/invalid-email') return 'সঠিক Email দাও';
-  if(e.code==='auth/network-request-failed') return 'Internet সংযোগ নেই';
-  return e.message;
+  const code = e.code||e.message||'';
+  // Firebase REST API codes
+  if(code.includes('EMAIL_NOT_FOUND')||code.includes('user-not-found')) return 'এই Email দিয়ে কোনো account নেই। আগে নিবন্ধন করো।';
+  if(code.includes('INVALID_PASSWORD')||code.includes('wrong-password')||code.includes('INVALID_LOGIN_CREDENTIALS')) return 'Password ভুল হয়েছে। আবার চেষ্টা করো।';
+  if(code.includes('EMAIL_EXISTS')||code.includes('email-already-in-use')) return 'এই Email দিয়ে আগেই account আছে। Login করো।';
+  if(code.includes('WEAK_PASSWORD')||code.includes('weak-password')) return 'Password কমপক্ষে ৬ অক্ষর দাও।';
+  if(code.includes('INVALID_EMAIL')||code.includes('invalid-email')) return 'সঠিক Email format দাও।';
+  if(code.includes('TOO_MANY_ATTEMPTS')) return 'অনেকবার চেষ্টা করা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করো।';
+  if(code.includes('USER_DISABLED')) return 'এই account বন্ধ করা হয়েছে।';
+  if(code.includes('network-request-failed')||code.includes('Failed to fetch')) return 'Internet সংযোগ নেই। Connection চেক করো।';
+  return e.message || 'অজানা সমস্যা হয়েছে। আবার চেষ্টা করো।';
 }
 
 /* ══ INIT ══ */
