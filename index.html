@@ -112,7 +112,31 @@ function goApp(uData){
   var a=document.getElementById('authScreen'),b=document.getElementById('appScreen');
   if(a) a.style.display='none';
   if(b) b.style.display='block';
+  // Admin সবসময় access পাবে
+  if(uData && uData.isAdmin){ 
+    hidePendingScreen(); 
+    if(window.initApp) window.initApp(); 
+    return; 
+  }
+  // approved না হলে pending screen দেখাও
+  if(uData && uData.approved === false){
+    showPendingScreen();
+    return;
+  }
+  hidePendingScreen();
   if(window.initApp) window.initApp();
+}
+function showPendingScreen(){
+  var ps = document.getElementById('pendingScreen');
+  if(ps){ 
+    ps.style.display='flex';
+    var emailEl = document.getElementById('pendingEmail');
+    if(emailEl) emailEl.textContent = window._uEmail || (window._uData&&window._uData.email) || '';
+  }
+}
+function hidePendingScreen(){
+  var ps = document.getElementById('pendingScreen');
+  if(ps){ ps.style.display='none'; }
 }
 function goAuth(){
   var a=document.getElementById('authScreen'),b=document.getElementById('appScreen');
@@ -142,7 +166,8 @@ window._register = async function(email,pass){
   saveTok(d.idToken,d.localId,d.email,d.expiresIn);
   var uData={uid:d.localId,email:d.email,name:'',username:'',bio:'',gender:'male',
              followers:0,views:0,streak:0,completed:0,unlockedTiers:'free',
-             pic:'',isAdmin:d.localId===AUID,createdAt:new Date().toISOString()};
+             pic:'',isAdmin:d.localId===AUID,approved:false,
+             createdAt:new Date().toISOString()};
   await window._saveUser(d.localId,uData);
   goApp(uData);
   return {user:{uid:d.localId,email:d.email}};
@@ -218,7 +243,10 @@ window.addEventListener('DOMContentLoaded', async function(){
     window._uEmail = tok.email;
     try{
       var uData=await window._getUser(tok.uid);
-      if(uData){ goApp(uData); }
+      if(uData){ 
+        // Fresh data নিয়ে goApp করো (approval status check করতে)
+        goApp(uData);
+      }
       else{ goAuth(); }
     }catch(e){ goAuth(); }
   } else {
@@ -1234,6 +1262,32 @@ async function sendSupportMsg(){
 
 </div><!-- /appScreen -->
 
+<!-- ══ PENDING APPROVAL SCREEN ══ -->
+<div id="pendingScreen" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(5,5,20,0.97);backdrop-filter:blur(16px);align-items:center;justify-content:center;padding:24px;flex-direction:column;gap:0;">
+  <div style="background:linear-gradient(145deg,#0e0f1f,#1a1b2e);border:1px solid rgba(255,45,85,0.3);border-radius:24px;padding:32px 24px;width:100%;max-width:380px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+    <!-- Icon -->
+    <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,45,85,0.2),rgba(255,149,0,0.2));border:2px solid rgba(255,45,85,0.4);display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 20px;animation:pendingPulse 2s infinite;">🔒</div>
+    <!-- Title -->
+    <div style="font-family:var(--fd);font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;">অ্যাক্সেস পেন্ডিং</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:24px;line-height:1.6;">তোমার অ্যাকাউন্ট এখনো অ্যাপ্রুভ হয়নি।<br>Admin এর অনুমোদনের জন্য অপেক্ষা করো।</div>
+    <!-- Info box -->
+    <div style="background:rgba(255,149,0,0.08);border:1px solid rgba(255,149,0,0.2);border-radius:14px;padding:16px;margin-bottom:20px;text-align:left;">
+      <div style="font-size:12px;color:rgba(255,255,255,0.7);line-height:1.8;">
+        <div>📧 <span id="pendingEmail" style="color:#FF9500;font-weight:700;"></span></div>
+        <div style="margin-top:6px;">⏳ Admin রিভিউ করছেন...</div>
+        <div style="margin-top:6px;">✅ অ্যাপ্রুভ হলে এই পেজ আপনাআপনি আনলক হবে</div>
+      </div>
+    </div>
+    <!-- Check button -->
+    <button onclick="checkApproval()" style="width:100%;padding:13px;background:linear-gradient(135deg,#FF2D55,#FF9500);color:#fff;border:none;border-radius:12px;font-family:var(--fd);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px;">🔄 আবার চেক করো</button>
+    <!-- Logout -->
+    <button onclick="window._logout&&window._logout();goAuth();" style="width:100%;padding:10px;background:transparent;color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:12px;font-size:13px;cursor:pointer;">← লগআউট করো</button>
+  </div>
+</div>
+<style>
+@keyframes pendingPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,45,85,0.3)}50%{box-shadow:0 0 0 12px rgba(255,45,85,0)}}
+</style>
+
 <!-- ══════════════════════════════════════════════
      MAIN JS
 ══════════════════════════════════════════════ -->
@@ -1432,6 +1486,32 @@ async function sendSupportPageMsg(){
     await loadSupportPageMsgs();
   } catch(e){ unload(); toast('❌ সমস্যা হয়েছে','er'); }
 }
+
+async function checkApproval(){
+  var uid = window._uid || (window._uData && window._uData.uid);
+  if(!uid) return;
+  try{
+    var uData = await window._getUser(uid);
+    if(uData && uData.approved === true){
+      window._uData = uData;
+      hidePendingScreen();
+      if(window.initApp) window.initApp();
+    } else {
+      // Show email in pending screen
+      var emailEl = document.getElementById('pendingEmail');
+      if(emailEl) emailEl.textContent = uData?.email || window._uEmail || '';
+      // Flash effect to indicate check was done
+      var btn = event && event.target;
+      if(btn){ var orig=btn.textContent; btn.textContent='⏳ চেক করা হলো...'; setTimeout(()=>{btn.textContent=orig;},1500); }
+    }
+  }catch(e){ console.warn(e); }
+}
+
+// Auto check every 30 seconds when pending screen is visible
+setInterval(async function(){
+  var ps = document.getElementById('pendingScreen');
+  if(ps && ps.style.display !== 'none'){ await checkApproval(); }
+}, 30000);
 
 window.initApp = async () => {
   loadEarningLinks();
@@ -1697,30 +1777,38 @@ function openChal(id){
               `<button class="done-btn" onclick="doneChal(${id})">✅ আজকের চ্যালেঞ্জ সম্পূর্ণ করলাম!</button>`}`;
   showPage('detail');
 }
-function oItem(val, label, link){
-  const btn = link
-    ? `<a href="${link}" target="_blank" rel="noopener noreferrer" onclick="if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.openLink){event.preventDefault();Telegram.WebApp.openLink('${link}');}" style="display:inline-block;padding:4px 10px;background:linear-gradient(135deg,#FF2D55,#FF9500);color:#fff;border-radius:6px;font-size:10px;font-weight:700;text-decoration:none;cursor:pointer;">🛒 Order</a>`
-    : `<span style="font-size:9px;color:var(--muted);font-style:italic;">না থাকলে Order করুন</span>`;
-  return `<div class="oi" style="display:flex;flex-direction:column;gap:5px;padding:6px;background:var(--bg3);border-radius:8px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-      <div class="oi-c" style="margin-bottom:0;">${label}</div>
-      ${btn}
-    </div>
-    <div class="oi-v">${val||'—'}</div>
-  </div>`;
+function oItem(val,label,link){
+  if(!val&&!link) return '';
+  var btn;
+  if(link){
+    btn='<a href="'+link+'" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:3px 10px;background:linear-gradient(135deg,#FF2D55,#FF9500);color:#fff;border-radius:6px;font-size:10px;font-weight:700;text-decoration:none;cursor:pointer;" onclick="openOLink(event,this.href)">🛒 Order</a>';
+  } else {
+    btn='<span style="font-size:9px;color:var(--muted);font-style:italic;">না থাকলে Order করুন</span>';
+  }
+  return '<div class="oi" style="display:flex;flex-direction:column;gap:5px;padding:7px;background:var(--bg3);border-radius:8px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">'
+    +'<div class="oi-c" style="margin-bottom:0;">'+label+'</div>'+btn+'</div>'
+    +'<div class="oi-v">'+(val||'—')+'</div></div>';
 }
+function openOLink(e,url){
+  if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.openLink){
+    e.preventDefault();
+    window.Telegram.WebApp.openLink(url);
+  }
+}
+
 function swOutfit(type,btn,id){
   const c=(challenges||[]).find(x=>x.id===id); if(!c) return;
   btn.closest('.gtab-row').querySelectorAll('.gtab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   const o=type==='boy'?c.outfitBoy||{}:c.outfitGirl||{};
   const ex=type==='girl'&&o.makeup?oItem(o.makeup,'Makeup',o.makeupLink):'';
-  $(`outfitD${id}`).innerHTML=`<div class="outfit-g">
-    ${oItem(o.top,'উপরে',o.topLink)}
-    ${oItem(o.bottom,'নিচে',o.bottomLink)}
-    ${oItem(o.shoes,'জুতা',o.shoesLink)}
-    ${oItem(o.accessories,'Accessories',o.accessoriesLink)}
-    ${ex}</div>`;
+  $(`outfitD${id}`).innerHTML='<div class="outfit-g">'
+    +oItem(o.top,'উপরে',o.topLink)
+    +oItem(o.bottom,'নিচে',o.bottomLink)
+    +oItem(o.shoes,'জুতা',o.shoesLink)
+    +oItem(o.accessories,'Accessories',o.accessoriesLink)
+    +ex+'</div>';
 }
 async function doneChal(id){
   // আগের দিন check
