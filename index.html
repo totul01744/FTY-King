@@ -159,17 +159,22 @@ window._login = async function(email,pass){
   // সবসময় Firestore থেকে fresh approved status নাও
   var uData = await window._getUser(d.localId);
   if(!uData){
+    // একদম নতুন user — পুরো data দিয়ে document তৈরি করো
     uData={uid:d.localId,email:d.email,name:'',username:'',bio:'',gender:'male',
            followers:0,views:0,streak:0,completed:0,unlockedTiers:'free',
            pic:'',isAdmin:d.localId===AUID,approved:false,
            createdAt:new Date().toISOString()};
     await window._saveUser(d.localId,uData);
-  } else if(d.localId===AUID){
-    uData.isAdmin=true; uData.approved=true;
-  }
-  // approved field না থাকলে false ধরো
-  if(uData.isAdmin!==true && uData.approved!==true){
-    uData.approved=false;
+  } else {
+    // Admin হলে সবসময় approved
+    if(d.localId===AUID){ uData.isAdmin=true; uData.approved=true; }
+    // approved field Firestore-এ নেই (পুরনো বা ভাঙা document) — updateMask দিয়ে fix করো
+    if(uData.isAdmin!==true && !('approved' in uData)){
+      uData.approved=false;
+      try{ await fsUpdate('users',d.localId,{approved:false}); }catch(e){}
+    }
+    // approved এর value true/false নিশ্চিত করো
+    if(uData.isAdmin!==true && uData.approved!==true){ uData.approved=false; }
   }
   goApp(uData);
   return {user:{uid:d.localId,email:d.email}};
@@ -197,6 +202,12 @@ window._resetPassword = async function(email){
 
 window._saveUser = async function(uid,data){
   await fsSet('users',uid,data);
+  if(window._uid===uid) window._uData=Object.assign(window._uData||{},data);
+};
+
+// updateMask দিয়ে শুধু নির্দিষ্ট field update করো — বাকি field অপরিবর্তিত থাকবে
+window._updateUser = async function(uid,data){
+  await fsUpdate('users',uid,data);
   if(window._uid===uid) window._uData=Object.assign(window._uData||{},data);
 };
 
@@ -260,14 +271,17 @@ window.addEventListener('DOMContentLoaded', async function(){
       var uData=await window._getUser(tok.uid);
       if(uData){
         if(tok.uid===AUID){ uData.isAdmin=true; uData.approved=true; }
-        // approved field না থাকলে false
+        // approved field Firestore-এ নেই — fix করো
+        if(uData.isAdmin!==true && !('approved' in uData)){
+          uData.approved=false;
+          try{ await fsUpdate('users',tok.uid,{approved:false}); }catch(e){}
+        }
         if(uData.isAdmin!==true && uData.approved!==true){ uData.approved=false; }
         goApp(uData);
       } else {
         clearTok(); goAuth();
       }
     }catch(e){
-      // Network error হলে logout — cache দিয়ে bypass করা যাবে না
       console.warn('DOMContentLoaded error:', e);
       clearTok(); goAuth();
     }
@@ -1364,8 +1378,9 @@ async function doSignup(){
   load('অ্যাকাউন্ট তৈরি হচ্ছে...');
   try{
     const cred = await window._register(em,pw);
-    // নাম save করো
-    await window._saveUser(cred.user.uid,{name:nm,email:em});
+    // ⚠️ গুরুত্বপূর্ণ: _register ইতিমধ্যে approved:false সহ পুরো document save করেছে।
+    // তাই এখানে শুধু name field টা UPDATE করো — পুরো document আবার save করলে approved field উড়ে যাবে!
+    await window._updateUser(cred.user.uid, {name: nm});
     if(window._uData) window._uData.name = nm;
     // _register এর ভেতরে goApp() call হয়
   } catch(e){
@@ -2228,7 +2243,7 @@ function uploadPic(input){
       $('profAvD').innerHTML=`<img src="${comp}" style="width:88px;height:88px;border-radius:50%;object-fit:cover">`;
       load('ছবি সেভ হচ্ছে...');
       try{
-        await window._saveUser(window._uid,{pic:comp});
+        await window._updateUser(window._uid,{pic:comp}); // updateMask — শুধু pic field update
         if(window._uData) window._uData.pic=comp;
         unload(); toast('✅ ছবি সেভ হয়েছে!','ok');
       }catch(err){ unload(); toast('❌ ছবি সেভ হয়নি','er'); }
@@ -2246,7 +2261,8 @@ async function saveProfile(){
     streak:S.streak, completed:Object.keys(S.progress).filter(k=>S.progress[k]).length,
   };
   load('Firebase এ সেভ হচ্ছে...');
-  await window._saveUser(window._uid, data);
+  // ⚠️ _saveUser নয়, _updateUser ব্যবহার করো — নইলে approved, pic, unlockedTiers উড়ে যাবে
+  await window._updateUser(window._uid, data);
   window._uData = {...(window._uData||{}), ...data};
   unload(); renderProfile(); renderHome();
   toast('✅ প্রোফাইল সেভ! র‍্যাংকিং আপডেট হবে।','ok');
