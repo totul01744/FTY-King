@@ -159,22 +159,17 @@ window._login = async function(email,pass){
   // সবসময় Firestore থেকে fresh approved status নাও
   var uData = await window._getUser(d.localId);
   if(!uData){
-    // একদম নতুন user — পুরো data দিয়ে document তৈরি করো
     uData={uid:d.localId,email:d.email,name:'',username:'',bio:'',gender:'male',
            followers:0,views:0,streak:0,completed:0,unlockedTiers:'free',
            pic:'',isAdmin:d.localId===AUID,approved:false,
            createdAt:new Date().toISOString()};
     await window._saveUser(d.localId,uData);
-  } else {
-    // Admin হলে সবসময় approved
-    if(d.localId===AUID){ uData.isAdmin=true; uData.approved=true; }
-    // approved field Firestore-এ নেই (পুরনো বা ভাঙা document) — updateMask দিয়ে fix করো
-    if(uData.isAdmin!==true && !('approved' in uData)){
-      uData.approved=false;
-      try{ await fsUpdate('users',d.localId,{approved:false}); }catch(e){}
-    }
-    // approved এর value true/false নিশ্চিত করো
-    if(uData.isAdmin!==true && uData.approved!==true){ uData.approved=false; }
+  } else if(d.localId===AUID){
+    uData.isAdmin=true; uData.approved=true;
+  }
+  // approved field না থাকলে false ধরো
+  if(uData.isAdmin!==true && uData.approved!==true){
+    uData.approved=false;
   }
   goApp(uData);
   return {user:{uid:d.localId,email:d.email}};
@@ -188,6 +183,8 @@ window._register = async function(email,pass){
              pic:'',isAdmin:d.localId===AUID,approved:false,
              createdAt:new Date().toISOString()};
   await window._saveUser(d.localId,uData);
+  // pending screen দেখানোর আগে loader সরাও
+  if(typeof unload === 'function') unload();
   goApp(uData);
   return {user:{uid:d.localId,email:d.email}};
 };
@@ -202,12 +199,6 @@ window._resetPassword = async function(email){
 
 window._saveUser = async function(uid,data){
   await fsSet('users',uid,data);
-  if(window._uid===uid) window._uData=Object.assign(window._uData||{},data);
-};
-
-// updateMask দিয়ে শুধু নির্দিষ্ট field update করো — বাকি field অপরিবর্তিত থাকবে
-window._updateUser = async function(uid,data){
-  await fsUpdate('users',uid,data);
   if(window._uid===uid) window._uData=Object.assign(window._uData||{},data);
 };
 
@@ -271,17 +262,14 @@ window.addEventListener('DOMContentLoaded', async function(){
       var uData=await window._getUser(tok.uid);
       if(uData){
         if(tok.uid===AUID){ uData.isAdmin=true; uData.approved=true; }
-        // approved field Firestore-এ নেই — fix করো
-        if(uData.isAdmin!==true && !('approved' in uData)){
-          uData.approved=false;
-          try{ await fsUpdate('users',tok.uid,{approved:false}); }catch(e){}
-        }
+        // approved field না থাকলে false
         if(uData.isAdmin!==true && uData.approved!==true){ uData.approved=false; }
         goApp(uData);
       } else {
         clearTok(); goAuth();
       }
     }catch(e){
+      // Network error হলে logout — cache দিয়ে bypass করা যাবে না
       console.warn('DOMContentLoaded error:', e);
       clearTok(); goAuth();
     }
@@ -1315,9 +1303,15 @@ async function sendSupportMsg(){
       </div>
     </div>
     <!-- Check button -->
-    <button onclick="checkApproval(this)" style="width:100%;padding:13px;background:linear-gradient(135deg,#FF2D55,#FF9500);color:#fff;border:none;border-radius:12px;font-family:var(--fd);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px;">🔄 আবার চেক করো</button>
-    <!-- Logout -->
-    <div style="display:flex;gap:10px;margin-top:12px;justify-content:center;"><button onclick="checkApprovalStatus()" style="padding:10px 20px;background:linear-gradient(135deg,#00c864,#00a050);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🔄 চেক করো</button><button onclick="window._logout&&window._logout()" style="padding:10px 20px;background:rgba(255,255,255,0.08);color:var(--muted);border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🔙 লগআউট</button></div>
+    <button onclick="checkApproval(this)" style="width:100%;padding:13px;background:linear-gradient(135deg,#FF2D55,#FF9500);color:#fff;border:none;border-radius:12px;font-family:var(--fd);font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;">🔄 আবার চেক করো</button>
+    <!-- WhatsApp Contact + Logout -->
+    <div style="display:flex;gap:10px;margin-top:10px;">
+      <button onclick="window.open('https://wa.me/8801859393487','_blank')" style="flex:1;padding:12px 8px;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border:none;border-radius:10px;font-family:var(--fd);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.533 5.86L.057 23.885a.5.5 0 00.611.61l6.101-1.456A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.907 0-3.693-.502-5.236-1.378l-.374-.214-3.878.926.963-3.785-.233-.389A9.945 9.945 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+        Admin Contact
+      </button>
+      <button onclick="window._logout&&window._logout()" style="flex:1;padding:12px 8px;background:rgba(255,255,255,0.07);color:var(--muted);border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🔙 লগআউট</button>
+    </div>
   </div>
 </div>
 <style>
@@ -1378,11 +1372,12 @@ async function doSignup(){
   load('অ্যাকাউন্ট তৈরি হচ্ছে...');
   try{
     const cred = await window._register(em,pw);
-    // ⚠️ গুরুত্বপূর্ণ: _register ইতিমধ্যে approved:false সহ পুরো document save করেছে।
-    // তাই এখানে শুধু name field টা UPDATE করো — পুরো document আবার save করলে approved field উড়ে যাবে!
-    await window._updateUser(cred.user.uid, {name: nm});
+    // শুধু name field টা updateMask দিয়ে update করো
+    // _saveUser নয় — নইলে approved field উড়ে যাবে!
+    try{ await window._updateUser(cred.user.uid, {name: nm}); }catch(e2){}
     if(window._uData) window._uData.name = nm;
-    // _register এর ভেতরে goApp() call হয়
+    // _register এর ভেতরে goApp() call হয়েছে, তাই loader বন্ধ করো
+    unload();
   } catch(e){
     unload();
     toast('❌ '+getErrMsg(e),'er');
@@ -2243,7 +2238,7 @@ function uploadPic(input){
       $('profAvD').innerHTML=`<img src="${comp}" style="width:88px;height:88px;border-radius:50%;object-fit:cover">`;
       load('ছবি সেভ হচ্ছে...');
       try{
-        await window._updateUser(window._uid,{pic:comp}); // updateMask — শুধু pic field update
+        await window._saveUser(window._uid,{pic:comp});
         if(window._uData) window._uData.pic=comp;
         unload(); toast('✅ ছবি সেভ হয়েছে!','ok');
       }catch(err){ unload(); toast('❌ ছবি সেভ হয়নি','er'); }
@@ -2261,8 +2256,7 @@ async function saveProfile(){
     streak:S.streak, completed:Object.keys(S.progress).filter(k=>S.progress[k]).length,
   };
   load('Firebase এ সেভ হচ্ছে...');
-  // ⚠️ _saveUser নয়, _updateUser ব্যবহার করো — নইলে approved, pic, unlockedTiers উড়ে যাবে
-  await window._updateUser(window._uid, data);
+  await window._saveUser(window._uid, data);
   window._uData = {...(window._uData||{}), ...data};
   unload(); renderProfile(); renderHome();
   toast('✅ প্রোফাইল সেভ! র‍্যাংকিং আপডেট হবে।','ok');
